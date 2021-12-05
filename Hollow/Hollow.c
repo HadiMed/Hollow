@@ -1,10 +1,10 @@
 #include <windows.h>
 #include <stdio.h>
 
-typedef  DWORD(__stdcall *GetProcAddr)(DWORD, LPCSTR);
-typedef DWORD(__stdcall* Winex)(LPCSTR, u_int);
-
-GetProcAddr ii; 
+typedef  DWORD(__stdcall *_GetProcAddress)(DWORD, LPCSTR);
+typedef DWORD(__stdcall* _WinExec)(LPCSTR, u_int);
+typedef NTSTATUS(WINAPI* _NtUnmapViewOfSection)(HANDLE, PVOID); 
+ 
 
 DWORD kernel32_base, ntdll_base; 
 
@@ -88,10 +88,14 @@ DWORD find_function_address(DWORD base , char * function_name)
 int wmain()
 {
 	Kernel32_NTdll_bases();
-	ii = find_function_address(kernel32_base, "GetProcAddress");
-	printf("GetProcAddr @0x%x\n" , ii);
-	Winex iii = ii(kernel32_base, "WinExec"); 
-	printf("Winexec at : @0x%x\n", iii);
-	iii("cmd.exe", 0); 
+	_GetProcAddress GetProcAddr= find_function_address(kernel32_base, "GetProcAddress");
+	printf("GetProcAddr @0x%x\n" , GetProcAddr);
+	_WinExec Winex= GetProcAddr(kernel32_base, "WinExec"); 
+	printf("Winexec at : @0x%x\n", Winex);
+	Winex("cmd.exe", 0);
+	_NtUnmapViewOfSection NtUnmapViewOfSe = find_function_address(ntdll_base, "NtUnmapViewOfSection");
+	_NtUnmapViewOfSection NtUnmapViewOfTrue = GetProcAddr(ntdll_base, "NtUnmapViewOfSection");
+
+	printf("_NtUnmapViewOfSection at @0x%x", NtUnmapViewOfSe); 
 	//printf("ntdll base : @0x%x\nkernel32_Base : @0x%x\n", ntdll_base ,kernel32_base);
 }
