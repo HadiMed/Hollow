@@ -108,5 +108,4 @@ int wmain()
 	
 	_NtUnmapViewOfSection NtUnmapViewOfSe = find_function_address(ntdll_base, "NtUnmapViewOfSection");
 	printf("_NtUnmapViewOfSection @ 0x%x", NtUnmapViewOfSe); 
-	//printf("ntdll base : @0x%x\nkernel32_Base : @0x%x\n", ntdll_base ,kernel32_base);
 }
