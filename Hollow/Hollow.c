@@ -1,5 +1,54 @@
 #include <windows.h>
 #include <stdio.h>
+#include "Hollow.h"
+#include <subauth.h>
+
+typedef struct _RTL_USER_PROCESS_PARAMETERS {
+	BYTE           Reserved1[16];
+	PVOID          Reserved2[10];
+	UNICODE_STRING ImagePathName;
+	UNICODE_STRING CommandLine;
+} RTL_USER_PROCESS_PARAMETERS, * PRTL_USER_PROCESS_PARAMETERS;
+
+typedef struct _PEB_LDR_DATA {
+	BYTE       Reserved1[8];
+	PVOID      Reserved2[3];
+	LIST_ENTRY InMemoryOrderModuleList;
+} PEB_LDR_DATA, * PPEB_LDR_DATA;
+
+
+
+typedef struct _PEB {
+	BYTE                          Reserved1[2];
+	BYTE                          BeingDebugged;
+	BYTE                          Reserved2[1];
+	PVOID                         Reserved3[2];
+	PPEB_LDR_DATA                 Ldr;
+	PRTL_USER_PROCESS_PARAMETERS  ProcessParameters;
+	PVOID                         Reserved4[3];
+	PVOID                         AtlThunkSListPtr;
+	PVOID                         Reserved5;
+	ULONG                         Reserved6;
+	PVOID                         Reserved7;
+	ULONG                         Reserved8;
+	ULONG                         AtlThunkSListPtr32;
+	PVOID                         Reserved9[45];
+	BYTE                          Reserved10[96];
+	struct PS_POST_PROCESS_INIT_ROUTINE*  PostProcessInitRoutine;
+	BYTE                          Reserved11[128];
+	PVOID                         Reserved12[1];
+	ULONG                         SessionId;
+} PEB, * PPEB;
+
+
+typedef struct _smPROCESS_BASIC_INFORMATION {
+	LONG ExitStatus;
+	PPEB PebBaseAddress;
+	ULONG_PTR AffinityMask;
+	LONG BasePriority;
+	ULONG_PTR UniqueProcessId;
+	ULONG_PTR InheritedFromUniqueProcessId;
+} PROCESS_BASIC_INFORMATION, * PPROCESS_BASIC_INFORMATION;
 
 typedef  BOOL(__stdcall *_CreateProcessA)(LPCSTR,LPSTR, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES, BOOL,DWORD , LPVOID , LPCSTR ,LPSTARTUPINFOA ,LPPROCESS_INFORMATION);
 typedef  BOOL(__stdcall* _ReadProcessMemory)(HANDLE ,LPCVOID , LPVOID ,SIZE_T ,SIZE_T);
@@ -8,7 +57,7 @@ typedef  HANDLE(__stdcall* _CreateFileA)(LPCSTR,DWORD,DWORD,LPSECURITY_ATTRIBUTE
 typedef  DWORD(__stdcall* _GetFileSize)(HANDLE, LPDWORD);
 typedef  LPVOID(__stdcall* _HeapAlloc)(HANDLE , DWORD, SIZE_T);
 typedef BOOL(__stdcall* _ReadFile)(HANDLE,LPVOID,DWORD,LPDWORD,LPOVERLAPPED); 
-typedef  NTSTATUS(WINAPI* _NtQueryInformationProcess)(DWORD, LPCSTR);
+typedef  NTSTATUS(WINAPI* _NtQueryInformationProcess)(HANDLE , PROCESS_INFORMATION_CLASS,PVOID,ULONG,PULONG);
 typedef NTSTATUS(WINAPI* _NtUnmapViewOfSection)(HANDLE, PVOID);
 
 
@@ -94,7 +143,7 @@ DWORD find_function_address(DWORD base , char * function_name)
 int wmain()
 {
 	Kernel32_NTdll_bases();
-	 
+	PROCESS_BASIC_INFORMATION pbi ; 
 	STARTUPINFOA blah;
 	PROCESS_INFORMATION blah1; 
 	ZeroMemory(&blah, sizeof(blah));
@@ -104,8 +153,15 @@ int wmain()
 		printf("error creating this trash process bye , %d!\n",GetLastError());
 		exit(1); 
 	}
-	
-	
+	HANDLE target = blah1.hProcess;
+	ULONG len;
+	_NtQueryInformationProcess NtQueryInformationPr= find_function_address(ntdll_base, "NtQueryInformationProcess");
+	NTSTATUS status = NtQueryInformationPr(target, 0, &pbi,sizeof(pbi),&len);
+	/*	if (NT_ERROR(status)) {
+		printf("NtQuery failed !"); 
+	}*/
+	DWORD pebImageBaseOffset = (DWORD)pbi.PebBaseAddress + 8; 
+	printf("[+] base address of target process %x\n", pebImageBaseOffset);
 	_NtUnmapViewOfSection NtUnmapViewOfSe = find_function_address(ntdll_base, "NtUnmapViewOfSection");
 	printf("_NtUnmapViewOfSection @ 0x%x", NtUnmapViewOfSe); 
 }
