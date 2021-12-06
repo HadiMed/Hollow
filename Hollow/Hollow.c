@@ -149,7 +149,7 @@ int wmain()
 	ZeroMemory(&blah, sizeof(blah));
 
 	_CreateProcessA _CreateProc = find_function_address(kernel32_base, "CreateProcessA");
-	if (!_CreateProc(NULL, (LPSTR)"C:\\Windows\\SysWOW64\\notepad.exe", NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &blah, &blah1)) {
+	if (!_CreateProc(NULL, (LPSTR)"C:\\Windows\\syswow64\\notepad.exe", NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &blah, &blah1)) {
 		printf("error creating this trash process bye , %d!\n",GetLastError());
 		exit(1); 
 	}
@@ -161,7 +161,12 @@ int wmain()
 		printf("NtQuery failed !"); 
 	}*/
 	DWORD pebImageBaseOffset = (DWORD)pbi.PebBaseAddress + 8; 
-	printf("[+] base address of target process %x\n", pebImageBaseOffset);
 	_NtUnmapViewOfSection NtUnmapViewOfSe = find_function_address(ntdll_base, "NtUnmapViewOfSection");
-	printf("_NtUnmapViewOfSection @ 0x%x", NtUnmapViewOfSe); 
+	printf("_NtUnmapViewOfSection @ 0x%x\n", NtUnmapViewOfSe); 
+	LPVOID TargetImageBase = 0;
+	SIZE_T bytesRead = NULL;
+
+	_ReadProcessMemory ReadProcessMem = find_function_address(kernel32_base, "ReadProcessMemory"); 
+	ReadProcessMem(TargetImageBase, (LPCVOID)pebImageBaseOffset, &TargetImageBase, 4, &bytesRead);
+	printf("[+] base address of target %x", TargetImageBase); 
 }
