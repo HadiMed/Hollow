@@ -266,8 +266,12 @@ int wmain()
 	PIMAGE_SECTION_HEADER srcImageSection = (PIMAGE_SECTION_HEADER)((DWORD)srcBuffer + srcDosHeader->e_lfanew + sizeof(IMAGE_NT_HEADERS32));
 
 	/*copying sections*/
-	for (BYTE Section = 0; Section < srcNtHeaders->FileHeader.NumberOfSections; Section++,srcImageSection++)
+	BYTE Section; 
+	for (Section = 0; Section < srcNtHeaders->FileHeader.NumberOfSections; Section++, srcImageSection++)
+	{
 		WriteProcessMem(target, (PVOID)((DWORD)TargetImageBase + srcImageSection->VirtualAddress), (PVOID)((BYTE*)srcBuffer + srcImageSection->PointerToRawData), srcImageSection->SizeOfRawData, NULL);
+		printf("[+] Written Section = *\n"); 
+	}
 #ifdef DEBUG
 	printf("[+] Sections Copied successfully\n");
 #endif
@@ -282,41 +286,51 @@ int wmain()
 	*/
 	DWORD relocAddress = srcImageSection->PointerToRawData;
 	IMAGE_DATA_DIRECTORY relocData = srcNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
-	DWORD offset_block = 0;
+	DWORD offset_block = 0; 
 #ifdef DEBUG
-	printf("[+] Relocation log : \n");
+	printf("[+] Relocation log : \n\t relocAddress = %x\n",relocAddress);
 #endif
-	while (offset_block < relocData.Size) /*iterating over HeaderBlocks*/
-	{
-		PBASE_RELOCATION_BLOCK Blockheader = (PBASE_RELOCATION_BLOCK)((BYTE*)srcBuffer+relocAddress + offset_block);
-		offset_block += sizeof(BASE_RELOCATION_BLOCK);
-		DWORD N_Entries = (Blockheader->BlockSize - sizeof(BASE_RELOCATION_BLOCK))/sizeof(BASE_RELOCATION_ENTRY);
-		printf("entries = %x", N_Entries); 
-		 
-		PBASE_RELOCATION_ENTRY First_Block = (PBASE_RELOCATION_ENTRY)((BYTE*)srcBuffer + relocAddress + offset_block);
+	 srcImageSection = (PIMAGE_SECTION_HEADER)((DWORD)srcBuffer + srcDosHeader->e_lfanew + sizeof(IMAGE_NT_HEADERS32));
+	for(int Section=0; Section < srcNtHeaders->FileHeader.NumberOfSections; Section++,srcImageSection++){
 
-		for (DWORD X = 0; X < N_Entries; X++) /*iterating over entries*/
+		char* SectionNam = ".reloc"; 
+
+		if (!((DWORD)srcBuffer + srcImageSection->Name, SectionNam,5)) {
+			continue; 
+		}
+		printf("found reloc section\n"); 
+		while (offset_block < relocData.Size) /*iterating over HeaderBlocks*/
 		{
+			PBASE_RELOCATION_BLOCK Blockheader = (PBASE_RELOCATION_BLOCK)((DWORD)srcBuffer + relocAddress + offset_block);
+			offset_block += sizeof(BASE_RELOCATION_BLOCK);
+			printf("first block size = %x\n", Blockheader->BlockSize);
+			DWORD N_Entries = (Blockheader->BlockSize - sizeof(BASE_RELOCATION_BLOCK)) / sizeof(BASE_RELOCATION_ENTRY);
+			printf("entries = %x\n", N_Entries);
+			printf("[+] offset block = %x", offset_block);
 
-			offset_block += sizeof(BASE_RELOCATION_ENTRY);
-			if (First_Block->Type)
+			PBASE_RELOCATION_ENTRY First_Block = (PBASE_RELOCATION_ENTRY)((BYTE*)srcBuffer + relocAddress + offset_block);
+
+			for (DWORD X = 0; X < N_Entries; X++) /*iterating over entries*/
 			{
-				DWORD value; 
-				ReadProcessMem(target, (BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset, &value, sizeof(value), NULL); 
-				value += Diff;
-#ifdef DEBUG
-				printf("\tRelocating Address %x -> %x\n",value-Diff,value);
-#endif
-				if (!WriteProcessMem(target, (BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset, &value, sizeof(value), NULL))
-				{
-					printf("[-] error error error");
-					return 0xDEADBEEF; 
-				};
 
+				offset_block += sizeof(BASE_RELOCATION_ENTRY);
+				if (First_Block->Type)
+				{
+					DWORD value;
+					ReadProcessMem(target, (BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset, &value, sizeof(value), NULL);
+					value += Diff;
+#ifdef DEBUG
+					printf("\tRelocating Address %x -> %x\n", value - Diff, value);
+#endif
+					if (!WriteProcessMem(target, (BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset, &value, sizeof(value), NULL))
+					{
+						printf("[-] error error error");
+						return 0xDEADBEEF;
+					};
+
+				}
 			}
 		}
 
-
 	}
-
 }
