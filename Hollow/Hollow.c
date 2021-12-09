@@ -312,13 +312,13 @@ int wmain()
 			{
 
 				offset_block += sizeof(BASE_RELOCATION_ENTRY);
-				if (First_Block->Type)
+				if (First_Block[X].Type)
 				{
 					DWORD value;
 					ReadProcessMem(target, (BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset, &value, sizeof(value), NULL);
 					value += Diff;
 #ifdef DEBUG
-					printf("\tRelocating Address 0x%x -> %x\n", value - Diff, value);
+					printf("\tRelocating Address 0x%x -> 0x%x\n", value - Diff, value);
 #endif
 					if (!WriteProcessMem(target, (BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset, &value, sizeof(value), NULL))
 					{
