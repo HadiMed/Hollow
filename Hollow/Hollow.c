@@ -165,7 +165,6 @@ DWORD find_function_address(DWORD base , char * function_name)
 
 int wmain()
 {
-	
 	Kernel32_NTdll_bases();
 	PROCESS_BASIC_INFORMATION pbi ; 
 	STARTUPINFOA blah;
