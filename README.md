@@ -41,6 +41,6 @@ the loader will reloc all the variables refrenced by the binary that depends on 
 by calculating the difference between the prefered base address and the actual base address the loader mapped that binary , that's what the last
 loop in the code is good for  .
 ## Note 
-- Purpose of this projet : Learning more about windows internals , manipulating PE files on memory , think of ways to obfuscate native code and apply them .
+- Purpose of this projet : Learning more about windows internals , manipulating PE files on memory , thinking of ways to obfuscate native code and apply them .
 this was not intended for malicious pupose , use it on your own reponsibility .
 - Things can be added and will be added for example obfuscating more the code by crypting the strings passed to find_function_address , decrypt them on runtime .
