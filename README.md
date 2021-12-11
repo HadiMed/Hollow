@@ -3,11 +3,13 @@
 - According to MITRE 
 
 ```
-Process hollowing is commonly performed by creating a process in a suspended state then unmapping/hollowing its memory, which 
-can then be replaced with malicious code. A victim process can be created with native Windows API calls such as CreateProcess, 
-which includes a flag to suspend the processes primary thread. At this point the process can be unmapped using APIs calls such 
-as ZwUnmapViewOfSection or NtUnmapViewOfSection before being written to, realigned to the injected code, and 
-resumed via VirtualAllocEx, WriteProcessMemory, SetThreadContext, then ResumeThread respectively
+Process hollowing is commonly performed by creating a process in a suspended state then 
+unmapping/hollowing its memory, which can then be replaced with malicious code. A victim
+process can be created with native Windows API calls such as CreateProcess, which includes
+a flag to suspend the processes primary thread. At this point the process can be unmapped
+using APIs calls such as ZwUnmapViewOfSection or NtUnmapViewOfSection before being written 
+to, realigned to the injected code, and resumed via VirtualAllocEx, WriteProcessMemory, 
+SetThreadContext, then ResumeThread respectively . 
 ```
 - for me process hollowing is learning how to write a windows loader :p 
 ## Imlementation 
@@ -16,7 +18,7 @@ Since I dont't use header files (Idk how to :p) ,I think i owe the reader an exp
   - this function will try to resolve ***kernel32.dll*** and ***ntdll.dll*** bases using the <br/>
   ```TEB->PEB->InMemoryOrderList->base_of_exe->base_ntdll->base_kernelbase->basekernel32```
 - ***find-function-address :***
- - this function will try to resolve addresses of functions used without passing via ***GetProcAddress*** , using the export table of loaded modules (ntdll,kernel32)
+  - this function will try to resolve addresses of functions used without passing via ***GetProcAddress*** , using the export table of loaded modules (ntdll,kernel32)
 - ***Relocations :***
   - reloc section on PE , is basicly you have 2 structs :</br>
 ```
@@ -41,6 +43,4 @@ loop in the code is good for  .
 ## Note 
 - Purpose of this projet : Learning more about windows internals , manipulating PE files on memory , think of ways to obfuscate native code and apply them .
 this was not intended for malicious pupose , use it on your own reponsibility .
-- Things can be added and will be added for example obfuscating more the code by crypting the strings passed to find_function_address , decrypt them on runtime 
-
-
+- Things can be added and will be added for example obfuscating more the code by crypting the strings passed to find_function_address , decrypt them on runtime .
