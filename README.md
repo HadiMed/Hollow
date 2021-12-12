@@ -11,7 +11,7 @@ using APIs calls such as ZwUnmapViewOfSection or NtUnmapViewOfSection before bei
 to, realigned to the injected code, and resumed via VirtualAllocEx, WriteProcessMemory, 
 SetThreadContext, then ResumeThread respectively . 
 ```
-- for me process hollowing is learning how to write a windows loader :p 
+- for me process hollowing is learning how to write a windows loader :blush: .
 ## Imlementation 
 Since I dont't use header files (Idk how to :p) ,I think i owe the reader an explanation , I believe 3 components should be explained in this implementation
 - ***Kernel32_NTdll_bases :***
@@ -42,5 +42,5 @@ by calculating the difference between the prefered base address and the actual b
 loop in the code is good for  .
 ## Note 
 - Purpose of this projet : Learning more about windows internals , manipulating PE files on memory , thinking of ways to obfuscate native code and apply them .
-this was not intended for malicious pupose , use it on your own reponsibility .
+this was not intended for malicious pupose , use it on your own reponsibility :blush: .
 - Things can be added and will be added for example obfuscating more the code by crypting the strings passed to find_function_address , decrypt them on runtime .
