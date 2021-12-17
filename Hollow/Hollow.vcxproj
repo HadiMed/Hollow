@@ -142,6 +142,7 @@
     <ClCompile Include="Hollow.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Exception.h" />
     <ClInclude Include="Hollow.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
