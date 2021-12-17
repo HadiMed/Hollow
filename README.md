@@ -43,4 +43,9 @@ loop in the code is good for  .
 ## Note 
 - Purpose of this projet : Learning more about windows internals , manipulating PE files on memory , thinking of ways to obfuscate native code and apply them .
 this was not intended for malicious pupose , use it on your own reponsibility :blush: .
-- Things can be added and will be added for example obfuscating more the code by crypting the strings passed to find_function_address , decrypt them on runtime .
+- Things can be added and will be added for example obfuscating more the code by crypting the strings passed to find_function_address , decrypt them on runtime (done) .
+## PoC
+
+
+https://user-images.githubusercontent.com/57273771/146275694-49019bcc-9758-429c-adab-f7ce93cb71d6.mp4
+
