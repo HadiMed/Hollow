@@ -377,6 +377,7 @@ inline int wmain()
 						__asm int 3;
 					}
 					__except (EXCEPTION_EXECUTE_HANDLER) {}
+
 					DWORD value;
 					ReadProcessMem(target, (LPCVOID)((BYTE*)TargetImageBase + Blockheader->PageAddress + First_Block[X].Offset), &value, sizeof(DWORD), NULL);
 					value += Diff;
