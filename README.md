@@ -16,7 +16,7 @@ SetThreadContext, then ResumeThread respectively .
 Since I dont't use header files (Idk how to :p) ,I think i owe the reader an explanation , I believe 3 components should be explained in this implementation
 - ***Kernel32_NTdll_bases :***
   - this function will try to resolve ***kernel32.dll*** and ***ntdll.dll*** bases using the <br/>
-  ```TEB->PEB->InMemoryOrderList->base_of_exe->base_ntdll->base_kernelbase->basekernel32```
+  ```TEB->PEB->InMemoryOrderList->base_of_exe->base_ntdll->basekernel32```
 - ***find-function-address :***
   - this function will try to resolve addresses of functions used without passing via ***GetProcAddress*** , using the export table of loaded modules (ntdll,kernel32)
 - ***Relocations :***
